@@ -1,0 +1,173 @@
+╔═══════════════════════════════════════════════════════════════════╗
+║               NOURISH APP - QUICK START CARD                      ║
+║           Copy-Paste Commands for Your Laptop                     ║
+╚═══════════════════════════════════════════════════════════════════╝
+
+📍 YOUR PROJECT PATH:
+C:\Users\HP\Downloads\nourish-main\nourish-main\
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚀 QUICK START (Copy These 3 Blocks)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1️⃣ START BACKEND (Terminal 1 - As Administrator):
+────────────────────────────────────────────────────
+cd C:\Users\HP\Downloads\nourish-main\nourish-main\backend
+docker start mongodb
+python -m uvicorn server:app --reload --host 0.0.0.0 --port 8001
+
+
+2️⃣ START MOBILE (Terminal 2 - New Window):
+────────────────────────────────────────────────────
+cd C:\Users\HP\Downloads\nourish-main\nourish-main\mobile
+npx expo start
+
+
+3️⃣ ON YOUR PHONE:
+────────────────────────────────────────────────────
+- Open Expo Go app
+- Scan QR code from Terminal 2
+- Tap Profile tab (👤)
+- Create your profile
+- Done! 🎉
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔧 ONE-TIME SETUP (Run These Once)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+BACKEND SETUP:
+────────────────────────────────────────────────────
+cd C:\Users\HP\Downloads\nourish-main\nourish-main\backend
+pip install emergentintegrations --extra-index-url https://d33sy5i8bnduwe.cloudfront.net/simple/
+
+# Add to backend\.env file:
+EMERGENT_LLM_KEY=sk-emergent-969B7Bf9bAa9f7d52A
+
+
+MOBILE SETUP:
+────────────────────────────────────────────────────
+cd C:\Users\HP\Downloads\nourish-main\nourish-main\mobile
+npm install react-native-animatable expo-linear-gradient
+
+
+FIND YOUR IP:
+────────────────────────────────────────────────────
+ipconfig
+# Look for "IPv4 Address" - example: 192.168.1.2
+
+
+UPDATE CONFIG:
+────────────────────────────────────────────────────
+# Edit: mobile\config.js
+# Change: export const LAPTOP_IP = '192.168.1.2';
+#     To: export const LAPTOP_IP = 'YOUR_ACTUAL_IP';
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎨 PROFESSIONAL UI UPGRADE (Optional)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+INSTALL PACKAGES:
+────────────────────────────────────────────────────
+cd C:\Users\HP\Downloads\nourish-main\nourish-main\mobile
+npm install react-native-animatable expo-linear-gradient
+
+# Then I'll provide the professional App.js code
+# You replace: mobile\App.js with new code
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🐛 TROUBLESHOOTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+404 ERROR ON DASHBOARD:
+────────────────────────────────────────────────────
+✅ Solution: Create profile first!
+1. Go to Profile tab (👤)
+2. Create your profile
+3. Then go back to Dashboard
+
+
+CANNOT CONNECT TO BACKEND:
+────────────────────────────────────────────────────
+✅ Check:
+1. Backend terminal shows "Application startup complete"
+2. Phone and laptop on SAME WiFi
+3. IP in config.js is correct
+
+
+PORT ALREADY IN USE:
+────────────────────────────────────────────────────
+lsof -ti:8001 | xargs kill -9   # Backend
+lsof -ti:8081 | xargs kill -9   # Expo
+
+
+MONGODB NOT STARTING:
+────────────────────────────────────────────────────
+docker ps                                    # Check status
+docker start mongodb                         # Start if stopped
+docker run -d -p 27017:27017 --name mongodb mongo:latest  # Create new
+
+
+EXPO ERRORS:
+────────────────────────────────────────────────────
+npx expo start --clear   # Clear cache and restart
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📱 FIRST TIME USE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+STEP 1: Scan QR code with Expo Go
+STEP 2: Tap Profile tab (👤) - bottom right
+STEP 3: Tap "Create Profile" button
+STEP 4: Fill in your details
+STEP 5: Tap "Create Profile" at bottom
+STEP 6: Go to Dashboard (📊) - see your stats!
+STEP 7: Log meals (🍽️), track water (💧)
+STEP 8: Use AI suggestions (🤖)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔗 IMPORTANT URLS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Backend API:  http://localhost:8001/api/
+Test Backend: http://YOUR_IP:8001/api/
+MongoDB:      mongodb://localhost:27017
+Expo Metro:   exp://YOUR_IP:8081
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ SUCCESS CHECKLIST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+□ Backend shows: "Application startup complete"
+□ Mobile shows: QR code
+□ Phone and laptop on same WiFi
+□ Profile created in app
+□ Dashboard shows your stats
+□ Can log meals
+□ Can track water
+□ No errors in terminals
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📞 NEED HELP?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Read COMPLETE_SETUP_GUIDE.txt (detailed instructions)
+2. Check error message carefully
+3. Google the exact error
+4. Ask for help with screenshot of error
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💡 TIP: Keep this file open while working!
+     Pin it to your desktop for quick reference.
+
+🎉 YOU GOT THIS! Happy tracking! 🚀
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
