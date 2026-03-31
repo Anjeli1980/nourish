@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 import uuid
 from datetime import datetime, timezone, date
+from emergentintegrations.llm.chat import LlmChat, UserMessage
 
 
 ROOT_DIR = Path(__file__).parent
@@ -123,6 +124,16 @@ class WeightEntryCreate(BaseModel):
     date: Optional[str] = None
     notes: Optional[str] = None
 
+# AI Models
+class AIAdviceRequest(BaseModel):
+    user_id: str
+    query: str
+
+class AIMealSuggestionRequest(BaseModel):
+    user_id: str
+    meal_type: str
+    calories_remaining: float
+
 
 # ==================== HELPER FUNCTIONS ====================
 
@@ -154,7 +165,7 @@ def calculate_bmi(weight: float, height: float) -> float:
 
 @api_router.get("/")
 async def root():
-    return {"message": "Nourish Diet Planner API v1.0"}
+    return {"message": "Nourish Diet Planner API v2.0 with AI"}
 
 # User Profile Routes
 @api_router.post("/profile", response_model=UserProfile)
@@ -362,6 +373,73 @@ async def get_weight_history(user_id: str, limit: int = 30):
             entry['created_at'] = datetime.fromisoformat(entry['created_at'])
     
     return entries
+
+# AI Features Routes
+@api_router.post("/ai/advice")
+async def get_ai_advice(request: AIAdviceRequest):
+    """Get AI-powered diet advice"""
+    try:
+        # Get user profile for context
+        profile = await db.profiles.find_one({"id": request.user_id}, {"_id": 0})
+        if not profile:
+            raise HTTPException(status_code=404, detail="Profile not found")
+        
+        # Create AI chat with context
+        ai_key = os.environ.get('EMERGENT_LLM_KEY')
+        chat = LlmChat(
+            api_key=ai_key,
+            session_id=f"diet_advice_{request.user_id}",
+            system_message=f"""You are a professional nutritionist and diet expert. 
+User Profile:
+- Name: {profile['name']}
+- Age: {profile['age']}
+- Gender: {profile['gender']}
+- Height: {profile['height']}cm
+- Weight: {profile['weight']}kg
+- Goal: {profile['goal']}
+- Activity Level: {profile['activity_level']}
+
+Provide helpful, accurate, and personalized nutrition advice."""
+        ).with_model("openai", "gpt-5.2")
+        
+        user_message = UserMessage(text=request.query)
+        response = await chat.send_message(user_message)
+        
+        return {"advice": response, "source": "AI Nutritionist"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI service error: {str(e)}")
+
+@api_router.post("/ai/meal-suggestions")
+async def get_meal_suggestions(request: AIMealSuggestionRequest):
+    """Get AI-powered meal suggestions"""
+    try:
+        # Get user profile
+        profile = await db.profiles.find_one({"id": request.user_id}, {"_id": 0})
+        if not profile:
+            raise HTTPException(status_code=404, detail="Profile not found")
+        
+        # Create AI chat
+        ai_key = os.environ.get('EMERGENT_LLM_KEY')
+        chat = LlmChat(
+            api_key=ai_key,
+            session_id=f"meal_suggest_{request.user_id}",
+            system_message=f"""You are a meal planning expert. Suggest healthy meals based on:
+- Meal type: {request.meal_type}
+- Calories available: {request.calories_remaining}
+- User goal: {profile['goal']}
+- Activity level: {profile['activity_level']}
+
+Provide 3 specific meal suggestions with estimated calories and macros."""
+        ).with_model("openai", "gpt-5.2")
+        
+        user_message = UserMessage(
+            text=f"Suggest 3 healthy {request.meal_type} options for approximately {request.calories_remaining} calories."
+        )
+        response = await chat.send_message(user_message)
+        
+        return {"suggestions": response, "meal_type": request.meal_type}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI service error: {str(e)}")
 
 
 # Include the router in the main app
