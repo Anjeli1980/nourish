@@ -1,26 +1,37 @@
 # Nourish - Full-Stack Application
 
-A full-stack application built with React frontend, FastAPI backend, and MongoDB database.
+A full-stack application with React Native mobile app, React web frontend, FastAPI backend, and MongoDB database.
 
 ## 🚀 Quick Start Options
 
-Choose your preferred setup method:
+### Option 1: Mobile App (React Native + Expo) 📱 **NEW!**
+Run on your phone with Expo Go:
+```bash
+# See complete guide
+cat MOBILE_APP_SETUP.md
+```
+**[→ Complete Mobile App Setup Guide](MOBILE_APP_SETUP.md)**
 
-### Option 1: Automated Setup Script (Recommended for Local)
+### Option 2: Automated Setup Script (For Web App)
 ```bash
 ./setup_local.sh
 ```
 
-### Option 2: Docker (Easiest - One Command)
+### Option 3: Docker (Easiest - One Command)
 ```bash
 docker-compose up
 ```
 See [DOCKER_SETUP.md](DOCKER_SETUP.md) for complete Docker guide.
 
-### Option 3: Manual Local Setup
+### Option 4: Manual Local Setup
 See [LOCAL_SETUP.md](LOCAL_SETUP.md) for step-by-step local installation guide.
 
 ## 📋 Prerequisites
+
+**For Mobile App:**
+- Node.js 20+
+- Expo Go app on your phone
+- Backend running on laptop
 
 **For Local Setup:**
 - Python 3.11+
@@ -38,7 +49,11 @@ See [LOCAL_SETUP.md](LOCAL_SETUP.md) for step-by-step local installation guide.
 │   ├── server.py    # Main application file
 │   ├── requirements.txt
 │   └── .env         # Backend environment variables
-├── frontend/        # React frontend
+├── mobile/          # React Native mobile app (NEW!) 📱
+│   ├── App.js       # Main mobile app
+│   ├── config.js    # Backend URL config
+│   └── app.json     # Expo configuration
+├── frontend/        # React web frontend
 │   ├── src/
 │   ├── package.json
 │   └── .env         # Frontend environment variables
