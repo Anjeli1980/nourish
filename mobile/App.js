@@ -1,38 +1,156 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { 
+  StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, 
+  Alert, ActivityIndicator, Animated, Dimensions, Platform 
+} from 'react-native';
 import axios from 'axios';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Animatable from 'react-native-animatable';
 import { BACKEND_URL } from './config';
 
+const { width, height } = Dimensions.get('window');
 const Tab = createBottomTabNavigator();
 
-// Icons (using emojis for simplicity)
-const TabBarIcon = ({ focused, emoji }) => (
-  <Text style={{ fontSize: focused ? 28 : 24 }}>{emoji}</Text>
-);
+// Modern Color Palette
+const COLORS = {
+  primary: '#6C5CE7',      // Purple
+  secondary: '#A29BFE',    // Light Purple
+  accent: '#00B894',       // Green
+  success: '#00B894',      // Green
+  danger: '#FF7675',       // Red
+  warning: '#FDCB6E',      // Yellow
+  info: '#74B9FF',         // Blue
+  dark: '#2D3436',         // Dark Gray
+  light: '#DFE6E9',        // Light Gray
+  white: '#FFFFFF',
+  background: '#F8F9FA',
+  cardBg: '#FFFFFF',
+  textPrimary: '#2D3436',
+  textSecondary: '#636E72',
+  gradient1: ['#6C5CE7', '#A29BFE'],
+  gradient2: ['#00B894', '#55EFC4'],
+  gradient3: ['#FF7675', '#FD79A8'],
+  gradient4: ['#74B9FF', '#A29BFE'],
+};
+
+// Animated Components
+const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
+
+// Custom Tab Bar Icon
+const TabBarIcon = ({ focused, emoji, label }) => {
+  const scale = useRef(new Animated.Value(focused ? 1 : 0.9)).current;
+  
+  useEffect(() => {
+    Animated.spring(scale, {
+      toValue: focused ? 1.1 : 0.9,
+      friction: 3,
+      useNativeDriver: true,
+    }).start();
+  }, [focused]);
+
+  return (
+    <Animated.View style={[styles.tabIconContainer, { transform: [{ scale }] }]}>
+      {focused && (
+        <View style={[styles.tabIndicator, { backgroundColor: COLORS.primary }]} />
+      )}
+      <Text style={[styles.tabIcon, focused && styles.tabIconFocused]}>{emoji}</Text>
+      <Text style={[styles.tabLabel, focused && styles.tabLabelFocused]}>{label}</Text>
+    </Animated.View>
+  );
+};
+
+// Loading Skeleton Component
+const SkeletonLoader = () => {
+  const opacity = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 0.3,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  return (
+    <Animated.View style={[styles.skeleton, { opacity }]} />
+  );
+};
+
+// Welcome Screen Component
+const WelcomeScreen = ({ onStart }) => {
+  return (
+    <LinearGradient colors={COLORS.gradient1} style={styles.welcomeContainer}>
+      <Animatable.View animation="fadeInDown" delay={300} style={styles.welcomeContent}>
+        <Text style={styles.welcomeEmoji}>🌱</Text>
+        <Text style={styles.welcomeTitle}>Welcome to Nourish</Text>
+        <Text style={styles.welcomeSubtitle}>
+          Your AI-Powered Personal Diet Planner
+        </Text>
+        <Animatable.View animation="pulse" iterationCount="infinite" duration={2000}>
+          <TouchableOpacity style={styles.welcomeButton} onPress={onStart}>
+            <LinearGradient colors={[COLORS.white, COLORS.light]} style={styles.welcomeButtonGradient}>
+              <Text style={styles.welcomeButtonText}>Get Started</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </Animatable.View>
+        
+        <View style={styles.featureList}>
+          <Animatable.View animation="fadeInLeft" delay={600} style={styles.featureItem}>
+            <Text style={styles.featureIcon}>📊</Text>
+            <Text style={styles.featureText}>Track Your Nutrition</Text>
+          </Animatable.View>
+          <Animatable.View animation="fadeInLeft" delay={800} style={styles.featureItem}>
+            <Text style={styles.featureIcon}>🤖</Text>
+            <Text style={styles.featureText}>AI-Powered Suggestions</Text>
+          </Animatable.View>
+          <Animatable.View animation="fadeInLeft" delay={1000} style={styles.featureItem}>
+            <Text style={styles.featureIcon}>💪</Text>
+            <Text style={styles.featureText}>Achieve Your Goals</Text>
+          </Animatable.View>
+        </View>
+      </Animatable.View>
+    </LinearGradient>
+  );
+};
 
 // ==================== DASHBOARD SCREEN ====================
-function DashboardScreen({ userId }) {
+function DashboardScreen({ userId, hasProfile }) {
   const [stats, setStats] = useState(null);
   const [dailySummary, setDailySummary] = useState(null);
   const [waterIntake, setWaterIntake] = useState(null);
   const [loading, setLoading] = useState(true);
+  const progressAnim = useRef(new Animated.Value(0)).current;
 
   const fetchData = async () => {
+    if (!hasProfile) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       const today = new Date().toISOString().split('T')[0];
       
       const [statsRes, summaryRes, waterRes] = await Promise.all([
-        axios.get(`${BACKEND_URL}/profile/${userId}/stats`),
-        axios.get(`${BACKEND_URL}/meals/${userId}/${today}/summary`),
-        axios.get(`${BACKEND_URL}/water/${userId}/${today}`)
+        axios.get(`${BACKEND_URL}/profile/${userId}/stats`).catch(() => null),
+        axios.get(`${BACKEND_URL}/meals/${userId}/${today}/summary`).catch(() => null),
+        axios.get(`${BACKEND_URL}/water/${userId}/${today}`).catch(() => null)
       ]);
       
-      setStats(statsRes.data);
-      setDailySummary(summaryRes.data);
-      setWaterIntake(waterRes.data);
+      if (statsRes) setStats(statsRes.data);
+      if (summaryRes) setDailySummary(summaryRes.data);
+      if (waterRes) setWaterIntake(waterRes.data);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
@@ -41,22 +159,44 @@ function DashboardScreen({ userId }) {
   };
 
   useEffect(() => {
-    if (userId) fetchData();
-  }, [userId]);
+    fetchData();
+  }, [userId, hasProfile]);
+
+  useEffect(() => {
+    if (stats && dailySummary) {
+      const percentage = Math.min((dailySummary.total_calories / stats.target_calories) * 100, 100);
+      Animated.timing(progressAnim, {
+        toValue: percentage,
+        duration: 1000,
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [stats, dailySummary]);
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
-      </View>
+      <LinearGradient colors={[COLORS.background, COLORS.white]} style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loadingText}>Loading your dashboard...</Text>
+        </View>
+      </LinearGradient>
     );
   }
 
-  if (!stats) {
+  if (!hasProfile) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.emptyText}>No profile data. Please create a profile first!</Text>
-      </View>
+      <LinearGradient colors={COLORS.gradient1} style={styles.container}>
+        <View style={styles.emptyStateContainer}>
+          <Animatable.Text animation="bounceIn" style={styles.emptyStateEmoji}>
+            👤
+          </Animatable.Text>
+          <Text style={styles.emptyStateTitle}>Create Your Profile First!</Text>
+          <Text style={styles.emptyStateText}>
+            Go to the Profile tab to set up your account and start tracking your nutrition journey.
+          </Text>
+        </View>
+      </LinearGradient>
     );
   }
 
@@ -66,102 +206,142 @@ function DashboardScreen({ userId }) {
 
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>📊 Dashboard</Text>
-        <TouchableOpacity onPress={fetchData} style={styles.refreshButton}>
-          <Text style={styles.refreshButtonText}>🔄 Refresh</Text>
-        </TouchableOpacity>
-      </View>
+      <LinearGradient colors={COLORS.gradient1} style={styles.headerGradient}>
+        <Animatable.View animation="fadeInDown" style={styles.headerContent}>
+          <Text style={styles.headerTitle}>Dashboard</Text>
+          <Text style={styles.headerSubtitle}>Track your daily nutrition</Text>
+          <TouchableOpacity onPress={fetchData} style={styles.refreshButton}>
+            <Text style={styles.refreshIcon}>🔄</Text>
+          </TouchableOpacity>
+        </Animatable.View>
+      </LinearGradient>
 
-      {/* Calorie Progress */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Today's Calories</Text>
-        <View style={styles.calorieStats}>
-          <View style={styles.calorieItem}>
-            <Text style={styles.calorieLabel}>Goal</Text>
-            <Text style={styles.calorieValue}>{Math.round(stats.target_calories)}</Text>
+      {/* Calorie Card with Animation */}
+      <Animatable.View animation="fadeInUp" delay={200} style={styles.card}>
+        <LinearGradient colors={['#FFFFFF', '#F8F9FA']} style={styles.cardGradient}>
+          <Text style={styles.cardTitle}>Today's Calories</Text>
+          
+          <View style={styles.calorieMainDisplay}>
+            <View style={styles.calorieCircle}>
+              <Text style={styles.calorieMainNumber}>{Math.round(caloriesConsumed)}</Text>
+              <Text style={styles.calorieMainLabel}>consumed</Text>
+            </View>
           </View>
-          <View style={styles.calorieItem}>
-            <Text style={styles.calorieLabel}>Consumed</Text>
-            <Text style={[styles.calorieValue, { color: '#007AFF' }]}>{Math.round(caloriesConsumed)}</Text>
-          </View>
-          <View style={styles.calorieItem}>
-            <Text style={styles.calorieLabel}>Remaining</Text>
-            <Text style={[styles.calorieValue, { color: caloriesRemaining >= 0 ? '#4CAF50' : '#F44336' }]}>
-              {Math.round(caloriesRemaining)}
-            </Text>
-          </View>
-        </View>
-        <View style={styles.progressBarContainer}>
-          <View style={[styles.progressBar, { width: `${caloriesPercentage}%` }]} />
-        </View>
-      </View>
 
-      {/* Macros */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Macronutrients</Text>
-        <View style={styles.macroGrid}>
-          <View style={styles.macroItem}>
-            <Text style={styles.macroEmoji}>🥩</Text>
-            <Text style={styles.macroLabel}>Protein</Text>
-            <Text style={styles.macroValue}>{Math.round(dailySummary?.total_protein || 0)}g</Text>
+          <View style={styles.calorieStats}>
+            <View style={styles.calorieStatItem}>
+              <Text style={styles.calorieStatLabel}>Goal</Text>
+              <Text style={[styles.calorieStatValue, { color: COLORS.primary }]}>
+                {Math.round(stats.target_calories)}
+              </Text>
+            </View>
+            <View style={styles.calorieStatDivider} />
+            <View style={styles.calorieStatItem}>
+              <Text style={styles.calorieStatLabel}>Remaining</Text>
+              <Text style={[styles.calorieStatValue, { 
+                color: caloriesRemaining >= 0 ? COLORS.success : COLORS.danger 
+              }]}>
+                {Math.round(caloriesRemaining)}
+              </Text>
+            </View>
           </View>
-          <View style={styles.macroItem}>
-            <Text style={styles.macroEmoji}>🍞</Text>
-            <Text style={styles.macroLabel}>Carbs</Text>
-            <Text style={styles.macroValue}>{Math.round(dailySummary?.total_carbs || 0)}g</Text>
-          </View>
-          <View style={styles.macroItem}>
-            <Text style={styles.macroEmoji}>🥑</Text>
-            <Text style={styles.macroLabel}>Fats</Text>
-            <Text style={styles.macroValue}>{Math.round(dailySummary?.total_fats || 0)}g</Text>
-          </View>
-        </View>
-      </View>
 
-      {/* Water Intake */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>💧 Water Intake</Text>
-        <Text style={styles.waterText}>
-          {waterIntake?.total_ml || 0}ml / 2000ml ({waterIntake?.percentage || 0}%)
-        </Text>
-        <View style={styles.progressBarContainer}>
-          <View style={[styles.progressBar, { width: `${Math.min(waterIntake?.percentage || 0, 100)}%`, backgroundColor: '#2196F3' }]} />
-        </View>
-      </View>
-
-      {/* Stats */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Your Stats</Text>
-        <View style={styles.statRow}>
-          <Text style={styles.statLabel}>BMI:</Text>
-          <Text style={styles.statValue}>{stats.bmi}</Text>
-        </View>
-        <View style={styles.statRow}>
-          <Text style={styles.statLabel}>BMR:</Text>
-          <Text style={styles.statValue}>{Math.round(stats.bmr)} cal/day</Text>
-        </View>
-        <View style={styles.statRow}>
-          <Text style={styles.statLabel}>TDEE:</Text>
-          <Text style={styles.statValue}>{Math.round(stats.tdee)} cal/day</Text>
-        </View>
-        <View style={styles.statRow}>
-          <Text style={styles.statLabel}>Current Weight:</Text>
-          <Text style={styles.statValue}>{stats.current_weight} kg</Text>
-        </View>
-        {stats.target_weight && (
-          <View style={styles.statRow}>
-            <Text style={styles.statLabel}>Target Weight:</Text>
-            <Text style={styles.statValue}>{stats.target_weight} kg</Text>
+          <View style={styles.progressBarContainer}>
+            <Animated.View 
+              style={[
+                styles.progressBar, 
+                { 
+                  width: progressAnim.interpolate({
+                    inputRange: [0, 100],
+                    outputRange: ['0%', '100%'],
+                  }),
+                  backgroundColor: caloriesPercentage > 100 ? COLORS.danger : COLORS.success,
+                }
+              ]} 
+            />
           </View>
-        )}
-      </View>
+          <Text style={styles.progressText}>{Math.round(caloriesPercentage)}% of daily goal</Text>
+        </LinearGradient>
+      </Animatable.View>
+
+      {/* Macros Card */}
+      <Animatable.View animation="fadeInUp" delay={400} style={styles.card}>
+        <LinearGradient colors={['#FFFFFF', '#F8F9FA']} style={styles.cardGradient}>
+          <Text style={styles.cardTitle}>Macronutrients</Text>
+          <View style={styles.macroGrid}>
+            <View style={styles.macroItem}>
+              <LinearGradient colors={['#FF7675', '#FD79A8']} style={styles.macroIcon}>
+                <Text style={styles.macroEmoji}>🥩</Text>
+              </LinearGradient>
+              <Text style={styles.macroLabel}>Protein</Text>
+              <Text style={styles.macroValue}>{Math.round(dailySummary?.total_protein || 0)}g</Text>
+            </View>
+            <View style={styles.macroItem}>
+              <LinearGradient colors={['#FDCB6E', '#FD79A8']} style={styles.macroIcon}>
+                <Text style={styles.macroEmoji}>🍞</Text>
+              </LinearGradient>
+              <Text style={styles.macroLabel}>Carbs</Text>
+              <Text style={styles.macroValue}>{Math.round(dailySummary?.total_carbs || 0)}g</Text>
+            </View>
+            <View style={styles.macroItem}>
+              <LinearGradient colors={['#00B894', '#55EFC4']} style={styles.macroIcon}>
+                <Text style={styles.macroEmoji}>🥑</Text>
+              </LinearGradient>
+              <Text style={styles.macroLabel}>Fats</Text>
+              <Text style={styles.macroValue}>{Math.round(dailySummary?.total_fats || 0)}g</Text>
+            </View>
+          </View>
+        </LinearGradient>
+      </Animatable.View>
+
+      {/* Water Card */}
+      <Animatable.View animation="fadeInUp" delay={600} style={styles.card}>
+        <LinearGradient colors={COLORS.gradient4} style={styles.cardGradient}>
+          <Text style={[styles.cardTitle, { color: COLORS.white }]}>💧 Water Intake</Text>
+          <Text style={styles.waterText}>
+            {waterIntake?.total_ml || 0}ml / 2000ml
+          </Text>
+          <Text style={styles.waterPercentage}>{waterIntake?.percentage || 0}%</Text>
+          <View style={[styles.progressBarContainer, { backgroundColor: 'rgba(255,255,255,0.3)' }]}>
+            <View style={[
+              styles.progressBar, 
+              { 
+                width: `${Math.min(waterIntake?.percentage || 0, 100)}%`,
+                backgroundColor: COLORS.white 
+              }
+            ]} />
+          </View>
+        </LinearGradient>
+      </Animatable.View>
+
+      {/* Stats Card */}
+      <Animatable.View animation="fadeInUp" delay={800} style={styles.card}>
+        <LinearGradient colors={['#FFFFFF', '#F8F9FA']} style={styles.cardGradient}>
+          <Text style={styles.cardTitle}>Your Statistics</Text>
+          {[
+            { label: 'BMI', value: stats.bmi, color: COLORS.primary },
+            { label: 'BMR', value: `${Math.round(stats.bmr)} cal/day`, color: COLORS.accent },
+            { label: 'TDEE', value: `${Math.round(stats.tdee)} cal/day`, color: COLORS.info },
+            { label: 'Weight', value: `${stats.current_weight} kg`, color: COLORS.danger },
+          ].map((stat, index) => (
+            <View key={index} style={styles.statRow}>
+              <View style={styles.statLabelContainer}>
+                <View style={[styles.statDot, { backgroundColor: stat.color }]} />
+                <Text style={styles.statLabel}>{stat.label}</Text>
+              </View>
+              <Text style={[styles.statValue, { color: stat.color }]}>{stat.value}</Text>
+            </View>
+          ))}
+        </LinearGradient>
+      </Animatable.View>
+
+      <View style={{ height: 100 }} />
     </ScrollView>
   );
 }
 
 // ==================== MEALS SCREEN ====================
-function MealsScreen({ userId }) {
+function MealsScreen({ userId, hasProfile }) {
   const [mealType, setMealType] = useState('breakfast');
   const [foodName, setFoodName] = useState('');
   const [calories, setCalories] = useState('');
@@ -171,10 +351,14 @@ function MealsScreen({ userId }) {
   const [servingSize, setServingSize] = useState('1 serving');
   const [meals, setMeals] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [showAI, setShowAI] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState('');
+  const [loadingAI, setLoadingAI] = useState(false);
 
   const today = new Date().toISOString().split('T')[0];
 
   const fetchMeals = async () => {
+    if (!hasProfile) return;
     try {
       const response = await axios.get(`${BACKEND_URL}/meals/${userId}/${today}`);
       setMeals(response.data);
@@ -184,8 +368,8 @@ function MealsScreen({ userId }) {
   };
 
   useEffect(() => {
-    if (userId) fetchMeals();
-  }, [userId]);
+    if (hasProfile) fetchMeals();
+  }, [userId, hasProfile]);
 
   const addMeal = async () => {
     if (!foodName || !calories) {
@@ -207,7 +391,7 @@ function MealsScreen({ userId }) {
         date: today
       });
 
-      Alert.alert('Success', 'Meal logged!');
+      Alert.alert('Success', 'Meal logged! 🎉');
       setFoodName('');
       setCalories('');
       setProtein('');
@@ -222,6 +406,24 @@ function MealsScreen({ userId }) {
     }
   };
 
+  const getAISuggestions = async () => {
+    try {
+      setLoadingAI(true);
+      setShowAI(true);
+      const response = await axios.post(`${BACKEND_URL}/ai/meal-suggestions`, {
+        user_id: userId,
+        meal_type: mealType,
+        calories_remaining: 500
+      });
+      setAiSuggestions(response.data.suggestions);
+    } catch (error) {
+      Alert.alert('Error', 'AI suggestions unavailable');
+      setAiSuggestions('AI service is currently unavailable. Please try again later.');
+    } finally {
+      setLoadingAI(false);
+    }
+  };
+
   const deleteMeal = async (mealId) => {
     try {
       await axios.delete(`${BACKEND_URL}/meals/${mealId}`);
@@ -230,6 +432,22 @@ function MealsScreen({ userId }) {
       Alert.alert('Error', 'Failed to delete meal');
     }
   };
+
+  if (!hasProfile) {
+    return (
+      <LinearGradient colors={COLORS.gradient2} style={styles.container}>
+        <View style={styles.emptyStateContainer}>
+          <Animatable.Text animation="bounceIn" style={styles.emptyStateEmoji}>
+            👤
+          </Animatable.Text>
+          <Text style={styles.emptyStateTitle}>Profile Required</Text>
+          <Text style={styles.emptyStateText}>
+            Please create your profile first to start logging meals.
+          </Text>
+        </View>
+      </LinearGradient>
+    );
+  }
 
   const mealsByType = {
     breakfast: meals.filter(m => m.meal_type === 'breakfast'),
@@ -240,870 +458,175 @@ function MealsScreen({ userId }) {
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.screenTitle}>🍽️ Log Meal</Text>
+      <LinearGradient colors={COLORS.gradient2} style={styles.headerGradient}>
+        <Animatable.View animation="fadeInDown" style={styles.headerContent}>
+          <Text style={styles.headerTitle}>Log Meal</Text>
+          <Text style={styles.headerSubtitle}>Track what you eat today</Text>
+        </Animatable.View>
+      </LinearGradient>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Meal Type</Text>
-        <View style={styles.mealTypeButtons}>
-          {['breakfast', 'lunch', 'dinner', 'snack'].map(type => (
-            <TouchableOpacity
-              key={type}
-              style={[styles.mealTypeButton, mealType === type && styles.mealTypeButtonActive]}
-              onPress={() => setMealType(type)}
-            >
-              <Text style={[styles.mealTypeText, mealType === type && styles.mealTypeTextActive]}>
-                {type.charAt(0).toUpperCase() + type.slice(1)}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <TextInput
-          style={styles.input}
-          placeholder="Food name"
-          value={foodName}
-          onChangeText={setFoodName}
-        />
-
-        <View style={styles.inputRow}>
-          <TextInput
-            style={[styles.input, styles.inputHalf]}
-            placeholder="Calories"
-            value={calories}
-            onChangeText={setCalories}
-            keyboardType="numeric"
-          />
-          <TextInput
-            style={[styles.input, styles.inputHalf]}
-            placeholder="Serving size"
-            value={servingSize}
-            onChangeText={setServingSize}
-          />
-        </View>
-
-        <Text style={styles.sectionLabel}>Macros (optional)</Text>
-        <View style={styles.inputRow}>
-          <TextInput
-            style={[styles.input, styles.inputThird]}
-            placeholder="Protein (g)"
-            value={protein}
-            onChangeText={setProtein}
-            keyboardType="numeric"
-          />
-          <TextInput
-            style={[styles.input, styles.inputThird]}
-            placeholder="Carbs (g)"
-            value={carbs}
-            onChangeText={setCarbs}
-            keyboardType="numeric"
-          />
-          <TextInput
-            style={[styles.input, styles.inputThird]}
-            placeholder="Fats (g)"
-            value={fats}
-            onChangeText={setFats}
-            keyboardType="numeric"
-          />
-        </View>
-
-        <TouchableOpacity style={styles.button} onPress={addMeal} disabled={loading}>
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>✓ Log Meal</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      {/* Today's Meals */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Today's Meals</Text>
-        
-        {Object.entries(mealsByType).map(([type, typeMeals]) => (
-          typeMeals.length > 0 && (
-            <View key={type} style={styles.mealSection}>
-              <Text style={styles.mealSectionTitle}>
-                {type.charAt(0).toUpperCase() + type.slice(1)}
-              </Text>
-              {typeMeals.map(meal => (
-                <View key={meal.id} style={styles.mealItem}>
-                  <View style={styles.mealItemInfo}>
-                    <Text style={styles.mealItemName}>{meal.food_name}</Text>
-                    <Text style={styles.mealItemDetails}>
-                      {meal.calories} cal • {meal.serving_size}
-                    </Text>
-                    {(meal.protein > 0 || meal.carbs > 0 || meal.fats > 0) && (
-                      <Text style={styles.mealItemMacros}>
-                        P: {meal.protein}g • C: {meal.carbs}g • F: {meal.fats}g
-                      </Text>
-                    )}
+      <Animatable.View animation="fadeInUp" delay={200} style={styles.card}>
+        <LinearGradient colors={['#FFFFFF', '#F8F9FA']} style={styles.cardGradient}>
+          <Text style={styles.cardTitle}>Meal Type</Text>
+          <View style={styles.mealTypeButtons}>
+            {[
+              { type: 'breakfast', emoji: '🌅', label: 'Breakfast' },
+              { type: 'lunch', emoji: '☀️', label: 'Lunch' },
+              { type: 'dinner', emoji: '🌙', label: 'Dinner' },
+              { type: 'snack', emoji: '🍎', label: 'Snack' }
+            ].map(({ type, emoji, label }) => (
+              <TouchableOpacity
+                key={type}
+                style={[
+                  styles.mealTypeButton,
+                  mealType === type && styles.mealTypeButtonActive
+                ]}
+                onPress={() => setMealType(type)}
+              >
+                {mealType === type && (
+                  <LinearGradient
+                    colors={COLORS.gradient2}
+                    style={styles.mealTypeButtonGradient}
+                  >
+                    <Text style={styles.mealTypeEmoji}>{emoji}</Text>
+                    <Text style={styles.mealTypeTextActive}>{label}</Text>
+                  </LinearGradient>
+                )}
+                {mealType !== type && (
+                  <View style={styles.mealTypeButtonInactive}>
+                    <Text style={styles.mealTypeEmoji}>{emoji}</Text>
+                    <Text style={styles.mealTypeText}>{label}</Text>
                   </View>
-                  <TouchableOpacity onPress={() => deleteMeal(meal.id)}>
-                    <Text style={styles.deleteButton}>🗑️</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
-          )
-        ))}
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
 
-        {meals.length === 0 && (
-          <Text style={styles.emptyText}>No meals logged today. Add one above!</Text>
-        )}
-      </View>
-    </ScrollView>
-  );
-}
-
-// ==================== WATER SCREEN ====================
-function WaterScreen({ userId }) {
-  const [waterIntake, setWaterIntake] = useState(null);
-  const [customAmount, setCustomAmount] = useState('');
-  const today = new Date().toISOString().split('T')[0];
-
-  const fetchWater = async () => {
-    try {
-      const response = await axios.get(`${BACKEND_URL}/water/${userId}/${today}`);
-      setWaterIntake(response.data);
-    } catch (error) {
-      console.error('Error fetching water data:', error);
-    }
-  };
-
-  useEffect(() => {
-    if (userId) fetchWater();
-  }, [userId]);
-
-  const logWater = async (amount) => {
-    try {
-      await axios.post(`${BACKEND_URL}/water`, {
-        user_id: userId,
-        amount_ml: amount,
-        date: today
-      });
-      fetchWater();
-      setCustomAmount('');
-    } catch (error) {
-      Alert.alert('Error', 'Failed to log water');
-    }
-  };
-
-  const quickAmounts = [250, 500, 750, 1000];
-
-  return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.screenTitle}>💧 Water Tracker</Text>
-
-      <View style={styles.card}>
-        <Text style={styles.waterLargeText}>
-          {waterIntake?.total_ml || 0} ml
-        </Text>
-        <Text style={styles.waterSubText}>
-          of 2000 ml daily goal ({waterIntake?.percentage || 0}%)
-        </Text>
-        <View style={styles.progressBarContainer}>
-          <View style={[styles.progressBar, { 
-            width: `${Math.min(waterIntake?.percentage || 0, 100)}%`,
-            backgroundColor: '#2196F3'
-          }]} />
-        </View>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Quick Add</Text>
-        <View style={styles.waterButtonGrid}>
-          {quickAmounts.map(amount => (
-            <TouchableOpacity
-              key={amount}
-              style={styles.waterButton}
-              onPress={() => logWater(amount)}
-            >
-              <Text style={styles.waterButtonEmoji}>💧</Text>
-              <Text style={styles.waterButtonText}>{amount}ml</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <Text style={styles.sectionLabel}>Custom Amount</Text>
-        <View style={styles.inputRow}>
-          <TextInput
-            style={[styles.input, { flex: 1 }]}
-            placeholder="Amount in ml"
-            value={customAmount}
-            onChangeText={setCustomAmount}
-            keyboardType="numeric"
-          />
-          <TouchableOpacity
-            style={[styles.button, { marginLeft: 8, flex: 0, paddingHorizontal: 20 }]}
-            onPress={() => customAmount && logWater(parseFloat(customAmount))}
-          >
-            <Text style={styles.buttonText}>Add</Text>
+          {/* AI Suggestion Button */}
+          <TouchableOpacity style={styles.aiButton} onPress={getAISuggestions}>
+            <LinearGradient colors={COLORS.gradient1} style={styles.aiButtonGradient}>
+              <Text style={styles.aiButtonText}>🤖 Get AI Suggestions</Text>
+            </LinearGradient>
           </TouchableOpacity>
-        </View>
-      </View>
-    </ScrollView>
-  );
-}
 
-// ==================== PROFILE SCREEN ====================
-function ProfileScreen({ userId, setUserId }) {
-  const [profile, setProfile] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [name, setName] = useState('');
-  const [age, setAge] = useState('');
-  const [gender, setGender] = useState('male');
-  const [height, setHeight] = useState('');
-  const [weight, setWeight] = useState('');
-  const [activityLevel, setActivityLevel] = useState('moderate');
-  const [goal, setGoal] = useState('maintain');
-  const [targetWeight, setTargetWeight] = useState('');
-  const [loading, setLoading] = useState(false);
+          {showAI && (
+            <Animatable.View animation="fadeIn" style={styles.aiSuggestionsBox}>
+              {loadingAI ? (
+                <ActivityIndicator color={COLORS.primary} />
+              ) : (
+                <Text style={styles.aiSuggestionsText}>{aiSuggestions}</Text>
+              )}
+            </Animatable.View>
+          )}
 
-  const fetchProfile = async () => {
-    if (!userId) return;
-    try {
-      const response = await axios.get(`${BACKEND_URL}/profile/${userId}`);
-      setProfile(response.data);
-      setName(response.data.name);
-      setAge(response.data.age.toString());
-      setGender(response.data.gender);
-      setHeight(response.data.height.toString());
-      setWeight(response.data.weight.toString());
-      setActivityLevel(response.data.activity_level);
-      setGoal(response.data.goal);
-      setTargetWeight(response.data.target_weight?.toString() || '');
-    } catch (error) {
-      console.error('Error fetching profile:', error);
-    }
-  };
-
-  useEffect(() => {
-    fetchProfile();
-  }, [userId]);
-
-  const createProfile = async () => {
-    if (!name || !age || !height || !weight) {
-      Alert.alert('Error', 'Please fill in all required fields');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const response = await axios.post(`${BACKEND_URL}/profile`, {
-        name,
-        age: parseInt(age),
-        gender,
-        height: parseFloat(height),
-        weight: parseFloat(weight),
-        activity_level: activityLevel,
-        goal,
-        target_weight: targetWeight ? parseFloat(targetWeight) : null
-      });
-      setUserId(response.data.id);
-      setProfile(response.data);
-      setIsEditing(false);
-      Alert.alert('Success', 'Profile created!');
-    } catch (error) {
-      Alert.alert('Error', 'Failed to create profile');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const updateProfile = async () => {
-    try {
-      setLoading(true);
-      await axios.put(`${BACKEND_URL}/profile/${userId}`, {
-        name,
-        age: parseInt(age),
-        gender,
-        height: parseFloat(height),
-        weight: parseFloat(weight),
-        activity_level: activityLevel,
-        goal,
-        target_weight: targetWeight ? parseFloat(targetWeight) : null
-      });
-      fetchProfile();
-      setIsEditing(false);
-      Alert.alert('Success', 'Profile updated!');
-    } catch (error) {
-      Alert.alert('Error', 'Failed to update profile');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (!profile && !isEditing) {
-    return (
-      <ScrollView style={styles.container}>
-        <Text style={styles.screenTitle}>👤 Create Profile</Text>
-        <View style={styles.card}>
-          <Text style={styles.emptyText}>No profile yet. Create one to start tracking!</Text>
-          <TouchableOpacity style={styles.button} onPress={() => setIsEditing(true)}>
-            <Text style={styles.buttonText}>Create Profile</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    );
-  }
-
-  if (isEditing || !profile) {
-    return (
-      <ScrollView style={styles.container}>
-        <Text style={styles.screenTitle}>👤 {profile ? 'Edit' : 'Create'} Profile</Text>
-        
-        <View style={styles.card}>
           <TextInput
             style={styles.input}
-            placeholder="Name *"
-            value={name}
-            onChangeText={setName}
+            placeholder="Food name (e.g., Grilled Chicken)"
+            value={foodName}
+            onChangeText={setFoodName}
+            placeholderTextColor={COLORS.textSecondary}
           />
 
           <View style={styles.inputRow}>
             <TextInput
               style={[styles.input, styles.inputHalf]}
-              placeholder="Age *"
-              value={age}
-              onChangeText={setAge}
+              placeholder="Calories"
+              value={calories}
+              onChangeText={setCalories}
               keyboardType="numeric"
+              placeholderTextColor={COLORS.textSecondary}
             />
             <TextInput
               style={[styles.input, styles.inputHalf]}
-              placeholder="Height (cm) *"
-              value={height}
-              onChangeText={setHeight}
-              keyboardType="numeric"
+              placeholder="Serving"
+              value={servingSize}
+              onChangeText={setServingSize}
+              placeholderTextColor={COLORS.textSecondary}
             />
           </View>
 
+          <Text style={styles.sectionLabel}>Macros (optional)</Text>
           <View style={styles.inputRow}>
             <TextInput
-              style={[styles.input, styles.inputHalf]}
-              placeholder="Weight (kg) *"
-              value={weight}
-              onChangeText={setWeight}
+              style={[styles.input, styles.inputThird]}
+              placeholder="Protein (g)"
+              value={protein}
+              onChangeText={setProtein}
               keyboardType="numeric"
+              placeholderTextColor={COLORS.textSecondary}
             />
             <TextInput
-              style={[styles.input, styles.inputHalf]}
-              placeholder="Target Weight (kg)"
-              value={targetWeight}
-              onChangeText={setTargetWeight}
+              style={[styles.input, styles.inputThird]}
+              placeholder="Carbs (g)"
+              value={carbs}
+              onChangeText={setCarbs}
               keyboardType="numeric"
+              placeholderTextColor={COLORS.textSecondary}
+            />
+            <TextInput
+              style={[styles.input, styles.inputThird]}
+              placeholder="Fats (g)"
+              value={fats}
+              onChangeText={setFats}
+              keyboardType="numeric"
+              placeholderTextColor={COLORS.textSecondary}
             />
           </View>
 
-          <Text style={styles.sectionLabel}>Gender</Text>
-          <View style={styles.optionButtons}>
-            {['male', 'female', 'other'].map(g => (
-              <TouchableOpacity
-                key={g}
-                style={[styles.optionButton, gender === g && styles.optionButtonActive]}
-                onPress={() => setGender(g)}
-              >
-                <Text style={[styles.optionText, gender === g && styles.optionTextActive]}>
-                  {g.charAt(0).toUpperCase() + g.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <Text style={styles.sectionLabel}>Activity Level</Text>
-          <View style={styles.optionButtons}>
-            {[
-              { value: 'sedentary', label: 'Sedentary' },
-              { value: 'light', label: 'Light' },
-              { value: 'moderate', label: 'Moderate' },
-              { value: 'active', label: 'Active' },
-              { value: 'very_active', label: 'Very Active' }
-            ].map(option => (
-              <TouchableOpacity
-                key={option.value}
-                style={[styles.optionButton, activityLevel === option.value && styles.optionButtonActive]}
-                onPress={() => setActivityLevel(option.value)}
-              >
-                <Text style={[styles.optionText, activityLevel === option.value && styles.optionTextActive]}>
-                  {option.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <Text style={styles.sectionLabel}>Goal</Text>
-          <View style={styles.optionButtons}>
-            {[
-              { value: 'lose_weight', label: 'Lose Weight' },
-              { value: 'maintain', label: 'Maintain' },
-              { value: 'gain_weight', label: 'Gain Weight' }
-            ].map(option => (
-              <TouchableOpacity
-                key={option.value}
-                style={[styles.optionButton, goal === option.value && styles.optionButtonActive]}
-                onPress={() => setGoal(option.value)}
-              >
-                <Text style={[styles.optionText, goal === option.value && styles.optionTextActive]}>
-                  {option.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <TouchableOpacity 
-            style={styles.button} 
-            onPress={profile ? updateProfile : createProfile}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>{profile ? 'Update Profile' : 'Create Profile'}</Text>
-            )}
+          <TouchableOpacity style={styles.button} onPress={addMeal} disabled={loading}>
+            <LinearGradient colors={COLORS.gradient2} style={styles.buttonGradient}>
+              {loading ? (
+                <ActivityIndicator color={COLORS.white} />
+              ) : (
+                <Text style={styles.buttonText}>✓ Log Meal</Text>
+              )}
+            </LinearGradient>
           </TouchableOpacity>
+        </LinearGradient>
+      </Animatable.View>
 
-          {profile && (
-            <TouchableOpacity 
-              style={[styles.button, { backgroundColor: '#666', marginTop: 8 }]}
-              onPress={() => {
-                setIsEditing(false);
-                fetchProfile();
-              }}
-            >
-              <Text style={styles.buttonText}>Cancel</Text>
-            </TouchableOpacity>
+      {/* Today's Meals */}
+      <Animatable.View animation="fadeInUp" delay={400} style={styles.card}>
+        <LinearGradient colors={['#FFFFFF', '#F8F9FA']} style={styles.cardGradient}>
+          <Text style={styles.cardTitle}>Today's Meals ({meals.length})</Text>
+          
+          {Object.entries(mealsByType).map(([type, typeMeals], index) => (
+            typeMeals.length > 0 && (
+              <Animatable.View key={type} animation="fadeInLeft" delay={index * 100}>
+                <Text style={styles.mealSectionTitle}>
+                  {type.charAt(0).toUpperCase() + type.slice(1)}
+                </Text>
+                {typeMeals.map((meal) => (
+                  <View key={meal.id} style={styles.mealItem}>
+                    <View style={styles.mealItemInfo}>
+                      <Text style={styles.mealItemName}>{meal.food_name}</Text>
+                      <Text style={styles.mealItemDetails}>
+                        {meal.calories} cal • {meal.serving_size}
+                      </Text>
+                      {(meal.protein > 0 || meal.carbs > 0 || meal.fats > 0) && (
+                        <Text style={styles.mealItemMacros}>
+                          P: {meal.protein}g • C: {meal.carbs}g • F: {meal.fats}g
+                        </Text>
+                      )}
+                    </View>
+                    <TouchableOpacity onPress={() => deleteMeal(meal.id)}>
+                      <Text style={styles.deleteButton}>🗑️</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </Animatable.View>
+            )
+          ))}
+
+          {meals.length === 0 && (
+            <Text style={styles.emptyText}>No meals logged today. Add one above!</Text>
           )}
-        </View>
-      </ScrollView>
-    );
-  }
+        </LinearGradient>
+      </Animatable.View>
 
-  return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.screenTitle}>👤 Profile</Text>
-
-      <View style={styles.card}>
-        <View style={styles.profileHeader}>
-          <Text style={styles.profileName}>{profile.name}</Text>
-          <TouchableOpacity onPress={() => setIsEditing(true)}>
-            <Text style={styles.editButton}>✏️ Edit</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.profileInfo}>
-          <View style={styles.profileInfoItem}>
-            <Text style={styles.profileInfoLabel}>Age</Text>
-            <Text style={styles.profileInfoValue}>{profile.age}</Text>
-          </View>
-          <View style={styles.profileInfoItem}>
-            <Text style={styles.profileInfoLabel}>Gender</Text>
-            <Text style={styles.profileInfoValue}>{profile.gender}</Text>
-          </View>
-          <View style={styles.profileInfoItem}>
-            <Text style={styles.profileInfoLabel}>Height</Text>
-            <Text style={styles.profileInfoValue}>{profile.height} cm</Text>
-          </View>
-          <View style={styles.profileInfoItem}>
-            <Text style={styles.profileInfoLabel}>Weight</Text>
-            <Text style={styles.profileInfoValue}>{profile.weight} kg</Text>
-          </View>
-          <View style={styles.profileInfoItem}>
-            <Text style={styles.profileInfoLabel}>Activity</Text>
-            <Text style={styles.profileInfoValue}>
-              {profile.activity_level.replace('_', ' ')}
-            </Text>
-          </View>
-          <View style={styles.profileInfoItem}>
-            <Text style={styles.profileInfoLabel}>Goal</Text>
-            <Text style={styles.profileInfoValue}>
-              {profile.goal.replace('_', ' ')}
-            </Text>
-          </View>
-        </View>
-      </View>
+      <View style={{ height: 100 }} />
     </ScrollView>
   );
 }
 
-// ==================== MAIN APP ====================
-export default function App() {
-  const [userId, setUserId] = useState('demo_user_' + Date.now());
-
-  return (
-    <NavigationContainer>
-      <Tab.Navigator
-        screenOptions={{
-          tabBarActiveTintColor: '#007AFF',
-          tabBarInactiveTintColor: '#999',
-          tabBarStyle: { height: 60, paddingBottom: 8, paddingTop: 8 },
-          headerShown: false
-        }}
-      >
-        <Tab.Screen 
-          name="Dashboard" 
-          options={{
-            tabBarIcon: ({ focused }) => <TabBarIcon focused={focused} emoji="📊" />
-          }}
-        >
-          {() => <DashboardScreen userId={userId} />}
-        </Tab.Screen>
-        <Tab.Screen 
-          name="Meals" 
-          options={{
-            tabBarIcon: ({ focused }) => <TabBarIcon focused={focused} emoji="🍽️" />
-          }}
-        >
-          {() => <MealsScreen userId={userId} />}
-        </Tab.Screen>
-        <Tab.Screen 
-          name="Water" 
-          options={{
-            tabBarIcon: ({ focused }) => <TabBarIcon focused={focused} emoji="💧" />
-          }}
-        >
-          {() => <WaterScreen userId={userId} />}
-        </Tab.Screen>
-        <Tab.Screen 
-          name="Profile" 
-          options={{
-            tabBarIcon: ({ focused }) => <TabBarIcon focused={focused} emoji="👤" />
-          }}
-        >
-          {() => <ProfileScreen userId={userId} setUserId={setUserId} />}
-        </Tab.Screen>
-      </Tab.Navigator>
-    </NavigationContainer>
-  );
-}
-
-// ==================== STYLES ====================
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    paddingTop: 60,
-    backgroundColor: '#007AFF',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  refreshButton: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  refreshButtonText: {
-    color: '#fff',
-    fontSize: 14,
-  },
-  screenTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333',
-    padding: 20,
-    paddingTop: 60,
-  },
-  card: {
-    backgroundColor: '#fff',
-    margin: 16,
-    padding: 20,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    color: '#333',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    marginBottom: 12,
-    backgroundColor: '#f9f9f9',
-  },
-  inputRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  inputHalf: {
-    flex: 1,
-  },
-  inputThird: {
-    flex: 1,
-  },
-  button: {
-    backgroundColor: '#007AFF',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#999',
-    textAlign: 'center',
-    padding: 20,
-    fontStyle: 'italic',
-  },
-  calorieStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 16,
-  },
-  calorieItem: {
-    alignItems: 'center',
-  },
-  calorieLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 4,
-  },
-  calorieValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  progressBarContainer: {
-    height: 8,
-    backgroundColor: '#e0e0e0',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressBar: {
-    height: '100%',
-    backgroundColor: '#4CAF50',
-    borderRadius: 4,
-  },
-  macroGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  macroItem: {
-    alignItems: 'center',
-  },
-  macroEmoji: {
-    fontSize: 32,
-    marginBottom: 8,
-  },
-  macroLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 4,
-  },
-  macroValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  waterText: {
-    fontSize: 18,
-    color: '#666',
-    marginBottom: 12,
-  },
-  statRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  statLabel: {
-    fontSize: 16,
-    color: '#666',
-  },
-  statValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  mealTypeButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 16,
-  },
-  mealTypeButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#f0f0f0',
-  },
-  mealTypeButtonActive: {
-    backgroundColor: '#007AFF',
-  },
-  mealTypeText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  mealTypeTextActive: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  sectionLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 8,
-    marginBottom: 8,
-  },
-  mealSection: {
-    marginTop: 16,
-  },
-  mealSectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#007AFF',
-    marginBottom: 8,
-  },
-  mealItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  mealItemInfo: {
-    flex: 1,
-  },
-  mealItemName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
-  },
-  mealItemDetails: {
-    fontSize: 14,
-    color: '#666',
-  },
-  mealItemMacros: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 2,
-  },
-  deleteButton: {
-    fontSize: 20,
-    padding: 8,
-  },
-  waterButtonGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 20,
-  },
-  waterButton: {
-    flex: 1,
-    minWidth: '45%',
-    backgroundColor: '#E3F2FD',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  waterButtonEmoji: {
-    fontSize: 32,
-    marginBottom: 8,
-  },
-  waterButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#2196F3',
-  },
-  waterLargeText: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: '#2196F3',
-    textAlign: 'center',
-  },
-  waterSubText: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  optionButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 16,
-  },
-  optionButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: '#f0f0f0',
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  optionButtonActive: {
-    backgroundColor: '#007AFF',
-    borderColor: '#007AFF',
-  },
-  optionText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  optionTextActive: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  profileHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  profileName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  editButton: {
-    fontSize: 16,
-    color: '#007AFF',
-  },
-  profileInfo: {
-    gap: 12,
-  },
-  profileInfoItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  profileInfoLabel: {
-    fontSize: 16,
-    color: '#666',
-  },
-  profileInfoValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    textTransform: 'capitalize',
-  },
-});
+// Continue in next message due to length...
